@@ -1,0 +1,47 @@
+name: Build Unity WebGL from Zip
+
+on:
+  workflow_dispatch: # chạy tay
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. Checkout (để GitHub Actions có quyền chạy trong repo)
+      - name: Checkout repo
+        uses: actions/checkout@v3
+
+      # 2. Download Unity project từ release
+      - name: Download Unity Project zip
+        run: |
+          wget https://github.com/hrjfjtjtntnfn/lode/releases/download/V.838383/prj.zip -O prj.zip
+          unzip prj.zip -d unity_project
+
+      # 3. Cache để build nhanh hơn
+      - name: Cache
+        uses: actions/cache@v3
+        with:
+          path: unity_project/Library
+          key: Library-${{ runner.os }}-${{ hashFiles('**/Packages/manifest.json') }}
+          restore-keys: |
+            Library-
+
+      # 4. Build Unity (dùng GameCI)
+      - name: Build project
+        uses: game-ci/unity-builder@v2
+        with:
+          projectPath: unity_project
+          unityVersion: 2022.3.21f1 # chỉnh đúng version bạn dùng
+          targetPlatform: WebGL
+
+      # 5. Upload build artifact
+      - name: Upload WebGL build
+        uses: actions/upload-artifact@v3
+        with:
+          name: WebGL-Build
+          path: build/WebGL
+          
