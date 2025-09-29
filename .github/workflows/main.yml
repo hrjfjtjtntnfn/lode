@@ -1,0 +1,54 @@
+name: Setup MySQL + phpMyAdmin
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  setup-mysql:
+    runs-on: ubuntu-latest
+
+    services:
+      mysql:
+        image: mysql:5.7
+        ports:
+          - 3306:3306
+        env:
+          MYSQL_ROOT_PASSWORD: root
+        options: >-
+          --health-cmd="mysqladmin ping --silent"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Wait for MySQL to be ready
+        run: |
+          for i in {1..30}; do
+            mysql -h 127.0.0.1 -P 3306 -u root -proot -e "SELECT 1" && break
+            echo "Waiting for MySQL..."
+            sleep 2
+          done
+
+      - name: Create nro_acc database and import SQL
+        run: |
+          mysql -h 127.0.0.1 -P 3306 -u root -proot -e "CREATE DATABASE IF NOT EXISTS nro_acc CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
+          mysql -h 127.0.0.1 -P 3306 -u root -proot --init-command="SET SESSION sql_mode='NO_ENGINE_SUBSTITUTION';" nro_acc < ./nro_acc.sql
+
+      - name: Create nro_data database and import SQL
+        run: |
+          mysql -h 127.0.0.1 -P 3306 -u root -proot -e "CREATE DATABASE IF NOT EXISTS nro_data CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
+          mysql -h 127.0.0.1 -P 3306 -u root -proot --init-command="SET SESSION sql_mode='NO_ENGINE_SUBSTITUTION';" nro_data < ./nro_data.sql
+
+      - name: Run phpMyAdmin
+        run: |
+          docker run --name phpmyadmin -d --rm -p 8080:80 \
+            -e PMA_HOST=host.docker.internal \
+            -e PMA_PORT=3306 \
+            -e PMA_USER=root \
+            -e PMA_PASSWORD=root \
+            phpmyadmin:latest
